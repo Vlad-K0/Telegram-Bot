@@ -1,0 +1,28 @@
+# Используем тот же базовый образ Python, что и для бота
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Копируем requirements.txt и устанавливаем зависимости
+# Убедитесь, что в requirements.txt есть Flask:
+# flask
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем все необходимые файлы для вебхук-сервера
+# Это могут быть webhook_listener.py и, если вы вынесли логику, database.py, core_logic.py и т.д.
+COPY webhook_listener.py .
+COPY database.py . 
+# Если webhook_listener его импортирует напрямую
+# COPY core_logic.py . # Если вы создали такой файл
+
+# Указываем команду для запуска Flask-сервера
+# Используем Gunicorn для более надежного запуска в продакшене,
+# но для теста можно и встроенный сервер Flask.
+# CMD ["python", "webhook_listener.py"]
+
+# Рекомендуемый способ запуска Flask в Docker (требует gunicorn в requirements.txt):
+# pip install gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:5001", "webhook_listener:flask_app"]
+# webhook_listener - имя вашего Python файла (webhook_listener.py)
+# flask_app - имя экземпляра Flask в вашем файле (flask_app = Flask(__name__))

@@ -1,0 +1,8 @@
+python-telegram-bot
+outline-vpn-api
+psycopg[binary]
+SQLAlchemy
+python-dotenv
+apscheduler
+yookassa  # <--- ДОБАВЬТЕ ЭТУ СТРОКУ, ЕСЛИ ЕЕ НЕТ
+# Другие ваши зависимости, если есть
