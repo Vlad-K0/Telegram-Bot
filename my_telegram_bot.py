@@ -15,16 +15,15 @@ import json
 # --- Импорты из вашего файла database.py ---
 from database import User, OutlineKey, Payment, create_db_tables, get_async_session
 
-# Импорты для APScheduler
+# --- Импорты для APScheduler ---
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# Импорты для ЮKassa
+# --- Импорты для ЮKassa ---
 from yookassa import Configuration as YooKassaConfiguration
 from yookassa import Payment as YooKassaPaymentObject
 from yookassa.domain.request.payment_request_builder import PaymentRequestBuilder
-# ИМПОРТ ДЛЯ СОЗДАНИЯ ЧЕКА
-from yookassa.domain.models.receipt import Receipt
-from yookassa.domain.models.receipt_item import ReceiptItem
+# --- ИСПРАВЛЕННЫЙ ИМПОРТ ДЛЯ ЧЕКА ---
+from yookassa.domain.models.receipt import Receipt, ReceiptItem
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -127,11 +126,9 @@ async def initiate_yookassa_payment(update: Update, context: ContextTypes.DEFAUL
         db_user = (await session.execute(select(User).where(User.telegram_id == user_tg.id))).scalar_one()
         
         # --- ЛОГИКА ЧЕКА ДЛЯ ЮKASSA ---
-        # Создаем объект чека
         receipt = Receipt()
-        receipt.customer = {"email": f"user_{user_tg.id}@telegram.bot"} # Email для отправки чека. Можно использовать фейковый.
+        receipt.customer = {"email": f"user_{user_tg.id}@telegram.bot"}
         
-        # Описываем товар/услугу в чеке
         receipt_item = ReceiptItem({
             "description": f"Подписка Outline VPN на {months} мес.",
             "quantity": 1.0,
@@ -141,7 +138,6 @@ async def initiate_yookassa_payment(update: Update, context: ContextTypes.DEFAUL
         receipt.items = [receipt_item]
         # --- КОНЕЦ ЛОГИКИ ЧЕКА ---
 
-        # Определяем, продление это или новая покупка
         active_key = (await session.execute(select(OutlineKey).where(and_(OutlineKey.user_id == db_user.id, OutlineKey.is_active == True, OutlineKey.expires_at > datetime.utcnow())))).scalars().first()
         
         yookassa_metadata = {"internal_user_db_id": str(db_user.id), "telegram_user_id": str(user_tg.id), "duration_days": str(duration_days)}
@@ -152,14 +148,13 @@ async def initiate_yookassa_payment(update: Update, context: ContextTypes.DEFAUL
             yookassa_metadata["key_to_extend_id"] = active_key.id
             description = f"Продление подписки на {months} мес."
 
-        # Собираем платеж
         builder = PaymentRequestBuilder()
         builder.set_amount({"value": str(payment_amount), "currency": "RUB"}) \
             .set_capture(True) \
             .set_confirmation({"type": "redirect", "return_url": f"https://t.me/{context.bot.username}"}) \
             .set_description(description) \
             .set_metadata(yookassa_metadata) \
-            .set_receipt(receipt) # <-- ДОБАВЛЯЕМ ЧЕК В ЗАПРОС
+            .set_receipt(receipt)
         
         payment_request = builder.build()
         yookassa_payment_obj = await asyncio.to_thread(YooKassaPaymentObject.create, payment_request, str(uuid.uuid4()))
