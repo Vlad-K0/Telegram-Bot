@@ -160,7 +160,16 @@ async def initiate_yookassa_payment(update: Update, context: ContextTypes.DEFAUL
         yookassa_payment_obj = await asyncio.to_thread(YooKassaPaymentObject.create, payment_request, str(uuid.uuid4()))
 
         if yookassa_payment_obj and yookassa_payment_obj.confirmation:
-            new_db_payment = Payment(yookassa_payment_id=yookassa_payment_obj.id, user_id=db_user.id, amount=payment_amount, status=yookassa_payment_obj.status, description=description, additional_data=json.dumps(yookassa_metadata))
+            # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+            new_db_payment = Payment(
+                yookassa_payment_id=yookassa_payment_obj.id,
+                user_id=db_user.id,
+                amount=payment_amount,
+                currency="RUB",  # <-- ДОБАВЛЕНО ЭТО ПОЛЕ
+                status=yookassa_payment_obj.status,
+                description=description,
+                additional_data=json.dumps(yookassa_metadata)
+            )
             session.add(new_db_payment)
             await session.commit()
             await context.bot.send_message(chat_id, f"Для оплаты перейдите по ссылке:\n{yookassa_payment_obj.confirmation.confirmation_url}")
