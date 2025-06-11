@@ -18,10 +18,7 @@ if not all([DB_HOST, DB_NAME, DB_USER, DB_PASSWORD]):
 
 DATABASE_URL = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
-# Добавляем pool_recycle=1800. Эта настройка заставляет пул соединений
-# автоматически переподключаться к БД, если соединение было неактивно 30 минут.
-# Это решает проблему "server closed the connection unexpectedly".
+# Настройка для стабильного подключения к БД
 async_engine = create_async_engine(DATABASE_URL, echo=False, pool_recycle=1800)
 
 Base = declarative_base()
@@ -29,7 +26,7 @@ AsyncSessionLocal = sessionmaker(
     bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )
 
-# --- Модели (остаются без изменений) ---
+# --- Модели ---
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -48,6 +45,8 @@ class Payment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     yookassa_payment_id = Column(String, unique=True, index=True, nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
+    # --- ВОССТАНОВЛЕННОЕ ПОЛЕ ---
+    currency = Column(String(3), nullable=False, default="RUB")
     status = Column(String(30), nullable=False, default="pending")
     description = Column(String, nullable=True)
     additional_data = Column(String, nullable=True)
