@@ -251,7 +251,7 @@ def main() -> None:
     application = Application.builder().token(BOT_TOKEN).build()
     
     scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(check_and_deactivate_expired_keys, 'interval', minutes=5)
+    scheduler.add_job(check_and_deactivate_expired_keys, 'interval', hours=1)
     
     async def post_init(app: Application):
         await create_db_tables()
