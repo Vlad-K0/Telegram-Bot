@@ -3,6 +3,8 @@ from flask import Flask, request, abort
 import os
 import json
 import asyncio # Для запуска асинхронных функций из Flask
+import threading
+import atexit
 
 # --- Настройки ---
 # Предполагается, что этот скрипт имеет доступ к тому же .env файлу, что и бот
@@ -40,6 +42,39 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 # и process_yookassa_notification будет вызываться с этим экземпляром.
 
 from telegram import Bot as TelegramBotInstance # Импортируем класс Bot
+
+# Global variables for the background thread and asyncio loop
+background_event_loop = None
+background_thread = None
+
+# Function to run the asyncio event loop
+def run_async_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+# Function to start the background asyncio event loop and thread
+def start_background_loop():
+    global background_event_loop, background_thread
+    if background_thread is None or not background_thread.is_alive():
+        background_event_loop = asyncio.new_event_loop()
+        background_thread = threading.Thread(target=run_async_loop, args=(background_event_loop,), daemon=True)
+        background_thread.start()
+        logging.info("Webhook: Background asyncio event loop started.")
+
+# Function to stop the background asyncio event loop
+def stop_background_loop():
+    global background_event_loop, background_thread
+    if background_event_loop:
+        background_event_loop.call_soon_threadsafe(background_event_loop.stop)
+        logging.info("Webhook: Background asyncio event loop stopping...")
+    if background_thread:
+        background_thread.join(timeout=5) # Wait for the thread to finish
+        if background_thread.is_alive():
+            logging.warning("Webhook: Background thread did not stop in time.")
+        else:
+            logging.info("Webhook: Background thread stopped.")
+        background_thread = None
+    background_event_loop = None
 
 # --- Копируем или импортируем необходимые части из my_telegram_bot.py и database.py ---
 # Это не очень хороший подход (дублирование или сложные импорты), но для демонстрации:
@@ -244,13 +279,27 @@ def yookassa_webhook_route(): # Переименовал функцию, что�
 
         # Для демонстрации, сделаем блокирующий вызов с новым event loop
         # (не рекомендуется для продакшена без тщательной настройки)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(process_yookassa_notification_standalone(json_data, telegram_bot_instance))
-        loop.close()
+        # loop = asyncio.new_event_loop()
+        # asyncio.set_event_loop(loop)
+        # loop.run_until_complete(process_yookassa_notification_standalone(json_data, telegram_bot_instance))
+        # loop.close()
+        # Schedule the coroutine on the background event loop
+        if background_event_loop:
+            coro = process_yookassa_notification_standalone(json_data, telegram_bot_instance)
+            future = asyncio.run_coroutine_threadsafe(coro, background_event_loop)
+            # Optionally, you can wait for the result with a timeout, but for webhooks,
+            # it's usually better to respond quickly and handle errors asynchronously.
+            # try:
+            #     future.result(timeout=10) # Example: wait up to 10 seconds
+            # except concurrent.futures.TimeoutError:
+            #     flask_app.logger.error("Webhook: Timeout waiting for background task to complete.")
+            # except Exception as e:
+            #     flask_app.logger.error(f"Webhook: Background task raised an exception: {e}", exc_info=True)
+        else:
+            flask_app.logger.error("Webhook: Background event loop is not running. Cannot process notification.")
 
     except Exception as e:
-        flask_app.logger.error(f"Webhook: Error during async processing: {e}", exc_info=True)
+        flask_app.logger.error(f"Webhook: Error submitting task to background loop: {e}", exc_info=True)
         # Важно все равно вернуть 200 OK ЮKassa, если это не ошибка запроса,
         # а ошибка нашей внутренней обработки, чтобы ЮKassa не повторяла запросы.
         # Но если это ошибка формата запроса, то можно и 400.
@@ -262,6 +311,12 @@ if __name__ == '__main__':
     # Для запуска: python webhook_listener.py
     # И затем ngrok: ngrok http 5001 (или ваш порт)
     # И этот ngrok URL укажите в ЮKassa
+    logging.info("Registering stop_background_loop on atexit.")
+    atexit.register(stop_background_loop)
+
+    logging.info("Starting background asyncio event loop...")
+    start_background_loop()
+
     logging.info("Starting Flask webhook listener on port 5001...")
     flask_app.run(host='0.0.0.0', port=5001)
 
