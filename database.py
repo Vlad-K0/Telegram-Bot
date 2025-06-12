@@ -36,7 +36,7 @@ class User(Base):
     last_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    outline_keys = relationship("OutlineKey", back_populates="user")
+    vpn_keys = relationship("VpnKey", back_populates="user")
     payments = relationship("Payment", back_populates="user")
 
 class Payment(Base):
@@ -54,22 +54,24 @@ class Payment(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="payments")
-    outline_key_association = relationship("OutlineKey", back_populates="payment", uselist=False)
+    outline_key_association = relationship("VpnKey", back_populates="payment", uselist=False) # Renamed VpnKey here
 
-class OutlineKey(Base):
-    __tablename__ = "outline_keys"
+class VpnKey(Base): # Renamed class
+    __tablename__ = "vpn_keys" # Renamed table
     id = Column(Integer, primary_key=True, index=True)
-    outline_id_on_server = Column(String, nullable=False, index=True)
+    key_uuid_on_server = Column(String, nullable=False, index=True) # Renamed field
     access_url = Column(String, nullable=False, unique=True)
     name = Column(String, nullable=True)
+    protocol = Column(String, nullable=False, default='outline') # Added new field
+    is_trial = Column(Boolean, default=False, nullable=False) # Added new field
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=30))
     is_active = Column(Boolean, default=True)
     
-    user = relationship("User", back_populates="outline_keys")
-    payment = relationship("Payment", back_populates="outline_key_association")
+    user = relationship("User", back_populates="vpn_keys") # Updated back_populates
+    payment = relationship("Payment", back_populates="outline_key_association") # This relationship name in Payment can remain if it's descriptive enough, or be renamed. Keeping for now.
 
 
 async def create_db_tables():
