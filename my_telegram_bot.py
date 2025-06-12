@@ -25,6 +25,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_URL = os.getenv("API_URL")
 CERT_SHA256 = os.getenv("CERT_SHA256")
+AMNEZIA_API_URL = os.getenv("AMNEZIA_API_URL")
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 BASE_PRICE_PER_MONTH = Decimal(os.getenv("BASE_PRICE_PER_MONTH", "160.00"))
@@ -44,6 +45,11 @@ if API_URL and CERT_SHA256:
         logger.info("Успешное подключение к Outline VPN API.")
     except Exception as e:
         logger.error(f"Ошибка Outline API: {e}")
+
+if AMNEZIA_API_URL:
+    logger.info("Amnezia API URL загружен.")
+else:
+    logger.info("Amnezia API URL не найден в .env.")
 
 if YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY:
     YooKassaConfiguration.account_id = YOOKASSA_SHOP_ID
