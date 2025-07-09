@@ -54,24 +54,30 @@ class Payment(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="payments")
-    outline_key_association = relationship("VpnKey", back_populates="payment", uselist=False) # Renamed VpnKey here
+    # Связь Payment с VpnKey (теперь подпиской Marzban)
+    # Можно переименовать outline_key_association для большей ясности, например, в marzban_subscription_association
+    marzban_subscription_association = relationship("VpnKey", back_populates="payment", uselist=False)
 
-class VpnKey(Base): # Renamed class
-    __tablename__ = "vpn_keys" # Renamed table
+class VpnKey(Base): # Класс можно переименовать в MarzbanSubscription или UserSubscription для ясности
+    __tablename__ = "vpn_keys" # Таблицу тоже можно переименовать, например, в user_subscriptions
     id = Column(Integer, primary_key=True, index=True)
-    key_uuid_on_server = Column(String, nullable=False, index=True) # Renamed field
-    access_url = Column(String, nullable=False, unique=True)
-    name = Column(String, nullable=True)
-    protocol = Column(String, nullable=False, default='outline') # Added new field
-    is_trial = Column(Boolean, default=False, nullable=False) # Added new field
+
+    # Новые поля для Marzban
+    marzban_username = Column(String, unique=True, index=True, nullable=False)
+    subscription_url = Column(String, nullable=False) # Ссылка-подписка от Marzban
+
+    name = Column(String, nullable=True) # Можно оставить для внутреннего имени или удалить
+    is_trial = Column(Boolean, default=False, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True, unique=True)
+    payment_id = Column(Integer, ForeignKey("payments.id"), nullable=True, unique=True) # unique=True означает, что один платеж может быть связан только с одной подпиской
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=30))
     is_active = Column(Boolean, default=True)
     
-    user = relationship("User", back_populates="vpn_keys") # Updated back_populates
-    payment = relationship("Payment", back_populates="outline_key_association") # This relationship name in Payment can remain if it's descriptive enough, or be renamed. Keeping for now.
+    user = relationship("User", back_populates="vpn_keys")
+    # Связь VpnKey с Payment
+    # back_populates должен совпадать с именем relationship в Payment
+    payment = relationship("Payment", back_populates="marzban_subscription_association")
 
 
 async def create_db_tables():
