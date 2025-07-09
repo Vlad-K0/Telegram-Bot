@@ -1,9 +1,9 @@
 python-telegram-bot
+outline-vpn-api
 psycopg[binary]
 SQLAlchemy
 python-dotenv
 apscheduler
 yookassa
-Flask
-gunicorn
-marzpy
+Flask  
+gunicorn 
